@@ -1,0 +1,19 @@
+name: pr-label-validation
+
+on:
+  pull_request:
+    branches: [master, main]
+    types: [opened, edited, labeled, unlabeled, synchronize]
+
+jobs:
+  pr-checker:
+    name: Check PR description
+    runs-on: [self-hosted, eks-runner]
+    steps:
+      - name: Validate PR has the correct labels
+        uses: transferwise/actions-pr-checker@v3
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_TAGS_MANDATORY: '["change:standard", "change:impactful", "change:emergency"]'
+          PR_COMMENT: |
+            Please add one of the following labels: `change:standard`, `change:impactful`, `change:emergency`
