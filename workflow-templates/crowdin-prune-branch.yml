@@ -1,0 +1,23 @@
+name: Crowdin - prune deleted branch
+
+on:
+  delete
+
+jobs:
+  prune-branch-on-crowdin:
+    runs-on: [self-hosted, production]
+    container: docker.tw.ee/actions_java15
+
+    steps:
+      - name: crowdin action
+        uses: crowdin/github-action@1.3.1
+        with:
+          delete_crowdin_branch: ${{ github.event.ref }}
+          upload_sources: false
+          upload_translations: false
+          download_translations: false
+
+          # integration settings
+          base_url: 'https://transferwise.crowdin.com'
+          token: ${{ secrets.CROWDIN_ENTERPRISE_TOKEN }}
+          project_id: ${{ secrets.CROWDIN_PROJECT_ID }} # Add as repository secret — number from transferwise.crowdin.com project URL
