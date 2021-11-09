@@ -2,9 +2,10 @@ name: Crowdin upload
 
 on:
   push:
-    branches-ignore:
-      - 'dependabot/**'
-      - 'dependabot-**'
+    branches:
+      - master
+      - main
+  workflow_dispatch:
 
 jobs:
   upload-to-crowdin:
