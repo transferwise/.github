@@ -2,12 +2,12 @@ name: Crowdin download
 
 on:
   schedule:
-    - cron: '*/15 * * * *' 
+    - cron: '0 8,12,16 * * *' 
   workflow_dispatch:
   push:
-    branches-ignore:
-      - 'dependabot/**'
-      - 'dependabot-**'
+    branches:
+      - main
+      - master
 
 jobs:
   download-from-crowdin:
