@@ -2,7 +2,7 @@ name: Crowdin download
 
 on:
   schedule:
-    - cron: '0 8,12,16 * * *' 
+    - cron: '0 7 * * 1-5'
   workflow_dispatch:
   push:
     branches:
@@ -11,7 +11,7 @@ on:
 
 jobs:
   download-from-crowdin:
-    runs-on: [self-hosted, production]
+    runs-on: [self-hosted, production, medium]
     container: docker.tw.ee/actions_java15
 
     steps:
