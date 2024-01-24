@@ -1,8 +1,0 @@
-{
-  "name": "Crowdin upload",
-  "description": "For uploading source messages to Crowdin.",
-  "iconName": "crowdin",
-  "filePatterns": [
-      "^crowdin.ya?ml$"
-  ]
-}

@@ -1,8 +1,0 @@
-{
-  "name": "Crowdin download",
-  "description": "For downloading translations from Crowdin.",
-  "iconName": "crowdin",
-  "filePatterns": [
-      "^crowdin.ya?ml$"
-  ]
-}
