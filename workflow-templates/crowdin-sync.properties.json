@@ -1,0 +1,8 @@
+{
+  "name": "Crowdin sync",
+  "description": "For syncing sources and translations with Crowdin.",
+  "iconName": "crowdin",
+  "filePatterns": [
+      "^crowdin.ya?ml$"
+  ]
+}
