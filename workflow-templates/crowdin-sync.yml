@@ -1,0 +1,15 @@
+name: Crowdin sync
+
+on:
+  schedule:
+    - cron: '0 7 * * 1-5'
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+      - master
+
+jobs:
+  crowdin-sync:
+    uses: transferwise/crowdin-reusable-workflows/.github/workflows/crowdin-sync.yml@v5
+    secrets: inherit
