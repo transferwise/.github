@@ -1,0 +1,150 @@
+name: Debug failed CI runs
+
+on:
+  workflow_run:
+    # Trigger this job after any run workflows in the repository completes
+    # workflows: [GradleWise]  # If workflows not specified would run for all workflows
+    types: [completed]
+
+permissions:
+  contents: write
+  pull-requests: write
+  actions: read
+  issues: write
+  id-token: write # Required for OIDC token exchange
+
+jobs:
+  auto-fix:
+    # Only run when the referenced workflow concluded with a failure
+    if: ${{ github.event.workflow_run.conclusion == 'failure' }}
+    runs-on: gha-production-medium
+    container: ci-images-release.arti.tw.ee/actions_java_17_and_21
+    env:
+        FAILED_WORKFLOW_NAME: ${{ github.event.workflow_run.name }}
+        FAILED_RUN_URL: ${{ github.event.workflow_run.html_url }}
+        FAILED_HEAD_BRANCH: ${{ github.event.workflow_run.head_branch }}
+        FAILED_HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
+    steps:
+
+      - name: Checkout code
+        uses: actions/checkout@v5
+        with:
+          ref: ${{ github.event.workflow_run.head_branch }}
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: "Add repo as safe directory"
+        run: |
+          git config --global --add safe.directory "$GITHUB_WORKSPACE"
+
+      - name: Get CI failure details
+        id: failure_details
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const zlib = require('zlib');
+
+            const run = await github.rest.actions.getWorkflowRun({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              run_id: ${{ github.event.workflow_run.id }}
+            });
+
+            const jobs = await github.rest.actions.listJobsForWorkflowRun({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              run_id: ${{ github.event.workflow_run.id }}
+            });
+
+            const failedJobs = jobs.data.jobs.filter(job => job.conclusion === 'failure');
+
+            let errorLogs = [];
+            for (const job of failedJobs) {
+              const logs = await github.rest.actions.downloadJobLogsForWorkflowRun({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                job_id: job.id
+              });
+
+              let logText;
+
+              try {
+                const toBuffer = (value) => {
+                  if (Buffer.isBuffer(value)) {
+                    return value;
+                  }
+                  if (value instanceof Uint8Array) {
+                    return Buffer.from(value);
+                  }
+                  if (ArrayBuffer.isView?.(value)) {
+                    return Buffer.from(value.buffer);
+                  }
+                  if (value instanceof ArrayBuffer) {
+                    return Buffer.from(value);
+                  }
+                  return null;
+                };
+
+                const bufferData = toBuffer(logs.data);
+
+                if (bufferData) {
+                  try {
+                    logText = zlib.gunzipSync(bufferData).toString('utf8');
+                  } catch (gzipError) {
+                    logText = bufferData.toString('utf8');
+                  }
+                } else if (typeof logs.data === 'string') {
+                  logText = logs.data;
+                } else {
+                  logText = JSON.stringify(logs.data);
+                }
+              } catch (error) {
+                logText = `Failed to unzip logs: ${error.message}`;
+              }
+
+              const errorLines = logText
+                .split(/\r?\n/)
+                .filter(line => /^(\d{4}-\d{2}-\d{2}T).*##\[error\]/.test(line));
+
+              const filteredLog = errorLines.length > 0
+                ? errorLines.join("\n")
+                : "No lines containing ##[error] were found in the job logs.";
+
+              errorLogs.push({
+                jobName: job.name,
+                logs: filteredLog,
+              });
+            }
+
+            return {
+              runUrl: run.data.html_url,
+              failedJobs: failedJobs.map(j => j.name),
+              errorLogs: errorLogs,
+              baseBranch: run.data.head_branch,
+              headSha: run.data.head_sha,
+            };
+
+      - name: Run Claude Code
+        uses: transferwise/claude-code-action@main
+        with:
+          anthropic_bedrock_base_url: ${{ secrets.ANTHROPIC_BEDROCK_BASE_URL }}
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          anthropic_default_sonnet_model: ${{ vars.ANTHROPIC_DEFAULT_SONNET_MODEL }}
+          anthropic_default_haiku_model: ${{ vars.ANTHROPIC_DEFAULT_HAIKU_MODEL }}
+          anthropic_default_opus_model: ${{ vars.ANTHROPIC_DEFAULT_OPUS_MODEL }}
+          x-wise-llm-gateway-team: "continuous-integration" # Update your team name
+          prompt: |
+            Analyse the logs of the failed job and explain why it failed. Summarise the root cause and provide specific recommendations to unblock engineers.
+            Append your findings to the GitHub Actions step summary by writing to the file referenced in the $GITHUB_STEP_SUMMARY environment variable (for example by running `printf '...' >> "$GITHUB_STEP_SUMMARY"`).
+            Do not modify repository files or run git commands.
+            Failed CI Run: ${{ fromJSON(steps.failure_details.outputs.result).runUrl }}
+            Failed Jobs: ${{ join(fromJSON(steps.failure_details.outputs.result).failedJobs, ', ') }}
+            PR Number: ${{ github.event.workflow_run.pull_requests[0].number }}
+            Base Branch: ${{ github.event.workflow_run.head_branch }}
+            Repository: ${{ github.repository }}
+
+            Error logs:
+            ${{ toJSON(fromJSON(steps.failure_details.outputs.result).errorLogs) }}
+          claude_args: |
+            --model ${{ vars.ANTHROPIC_DEFAULT_HAIKU_MODEL }}
+            --allowed-tools 'Edit,MultiEdit,Write,Read,Glob,Grep,LS,Bash,Bash(bun:install),Bash(npm:install),Bash(npx:eslint),Bash(gh:pr)'
