@@ -1,0 +1,35 @@
+name: Call CI AI Agents
+
+on:
+  issue_comment:
+    types: [created]
+  pull_request_review_comment:
+    types: [created]
+  issues:
+    types: [opened, assigned]
+  pull_request_review:
+    types: [submitted]
+  workflow_run:
+    # Trigger this job after any run workflows in the repository completes
+    workflows: [GradleWise]  # Replace with your workflow name(s)
+    types: [completed]
+
+jobs:
+  call-ci-ai-agents:
+    if: |
+      (github.event_name == 'issue_comment' && contains(github.event.comment.body, '/run-ci-ai-agents')) ||
+      (github.event_name == 'pull_request_review_comment' && contains(github.event.comment.body, '/run-ci-ai-agents')) ||
+      (github.event_name == 'pull_request_review' && contains(github.event.review.body, '/run-ci-ai-agents')) ||
+      (github.event_name == 'issues' && (contains(github.event.issue.body, '/run-ci-ai-agents') || contains(github.event.issue.title, '/run-ci-ai-agents'))) ||
+      (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'failure')
+    uses: transferwise/.github/.github/workflows/reusable-workflow-ci-ai-agents.yaml@master
+    secrets: inherit
+    with:
+      event_name: ${{ github.event_name }}
+      event_payload: ${{ toJSON(github.event) }}
+      repository: ${{ github.repository }}
+      ref: ${{ github.ref }}
+      sha: ${{ github.sha }}
+      actor: ${{ github.actor }}
+      failed_run_id: ${{ github.event.workflow_run && github.event.workflow_run.id || 0 }}
+      team: "continuous-integration" # Replace with your team name
