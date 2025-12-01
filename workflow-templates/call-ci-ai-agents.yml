@@ -16,8 +16,7 @@ jobs:
       (github.event_name == 'issue_comment' && contains(github.event.comment.body, '/run-ci-ai-agents')) ||
       (github.event_name == 'pull_request_review_comment' && contains(github.event.comment.body, '/run-ci-ai-agents')) ||
       (github.event_name == 'pull_request_review' && contains(github.event.review.body, '/run-ci-ai-agents')) ||
-      (github.event_name == 'issues' && (contains(github.event.issue.body, '/run-ci-ai-agents') || contains(github.event.issue.title, '/run-ci-ai-agents'))) ||
-      (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'failure')
+      (github.event_name == 'issues' && (contains(github.event.issue.body, '/run-ci-ai-agents') || contains(github.event.issue.title, '/run-ci-ai-agents')))
     uses: transferwise/.github/.github/workflows/reusable-workflow-ci-ai-agents.yaml@master
     secrets: inherit
     with:
