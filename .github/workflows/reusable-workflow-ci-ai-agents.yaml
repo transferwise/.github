@@ -50,7 +50,7 @@ on:
         type: string
 
 jobs:
-  work-on-issues-prs:
+  run-ci-ai-agent:
     if: |
       inputs.event_name == 'issues' ||
       inputs.event_name == 'issue_comment' ||
