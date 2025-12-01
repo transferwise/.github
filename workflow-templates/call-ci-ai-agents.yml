@@ -9,10 +9,6 @@ on:
     types: [opened, assigned]
   pull_request_review:
     types: [submitted]
-  workflow_run:
-    # Trigger this job after any run workflows in the repository completes
-    workflows: [GradleWise]  # Replace with your workflow name(s)
-    types: [completed]
 
 jobs:
   call-ci-ai-agents:
