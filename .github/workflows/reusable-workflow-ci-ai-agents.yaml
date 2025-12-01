@@ -91,7 +91,7 @@ jobs:
           } >> "$GITHUB_ENV"
 
       - name: Run AI Agents for Issues and PRs
-        uses: transferwise/claude-code-action@main
+        uses: transferwise/claude-code-action@add_command_subagent_debug_failed_runs
         with:
           trigger_phrase: "/run-ci-ai-agents"
           anthropic_bedrock_base_url: ${{ secrets.ANTHROPIC_BEDROCK_BASE_URL }}
