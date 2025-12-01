@@ -90,7 +90,7 @@ jobs:
             echo "GITHUB_ACTOR=${{ inputs.actor }}"
           } >> "$GITHUB_ENV"
 
-      - name: Run AI Agents for Issues and PRs
+      - name: Run AI Agent
         uses: transferwise/claude-code-action@add_command_subagent_debug_failed_runs
         with:
           trigger_phrase: "/run-ci-ai-agents"
