@@ -1,1 +1,0 @@
-Analyze the logs of the failed workflows in this PR, find out the root causes, write a summary including recommended fixes as a PR comment. Keep the summary and the recommendations succint.
