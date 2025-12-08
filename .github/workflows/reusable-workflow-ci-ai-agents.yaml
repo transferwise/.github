@@ -59,7 +59,7 @@ jobs:
     runs-on: gha-production-medium
     container: ci-images-release.arti.tw.ee/actions_java_17_and_21
     permissions:
-      contents: read
+      contents: write
       pull-requests: write
       issues: write
       id-token: write
