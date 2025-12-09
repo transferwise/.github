@@ -59,7 +59,7 @@ jobs:
     runs-on: gha-production-medium
     container: ci-images-release.arti.tw.ee/actions_java_17_and_21
     permissions:
-      contents: read
+      contents: write
       pull-requests: write
       issues: write
       id-token: write
@@ -94,6 +94,7 @@ jobs:
         uses: transferwise/claude-code-action@main
         with:
           trigger_phrase: "/run-ci-ai-agents"
+          use_commit_signing: "true"
           anthropic_bedrock_base_url: ${{ secrets.ANTHROPIC_BEDROCK_BASE_URL }}
           anthropic_default_sonnet_model: ${{ vars.ANTHROPIC_DEFAULT_SONNET_MODEL }}
           anthropic_default_haiku_model: ${{ vars.ANTHROPIC_DEFAULT_HAIKU_MODEL }}
@@ -105,5 +106,5 @@ jobs:
             api.github.com
             ${{ secrets.ANTHROPIC_BEDROCK_BASE_URL }}
           claude_args: |
-            --allowedTools "mcp__github_inline_comment__create_inline_comment"
+            --allowedTools "mcp__github_inline_comment__create_inline_comment,mcp__github_file_ops__commit_files,mcp__github_file_ops__delete_files"
             --model ${{ inputs.generic_model != '' && inputs.generic_model || vars.ANTHROPIC_DEFAULT_HAIKU_MODEL }}
