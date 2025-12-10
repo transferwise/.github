@@ -55,8 +55,7 @@ jobs:
       inputs.event_name == 'issues' ||
       inputs.event_name == 'issue_comment' ||
       inputs.event_name == 'pull_request_review_comment' ||
-      inputs.event_name == 'pull_request_review' ||
-      inputs.event_name == 'push'
+      inputs.event_name == 'pull_request_review'
     runs-on: gha-production-medium
     container: ci-images-release.arti.tw.ee/actions_java_17_and_21
     permissions:
@@ -92,7 +91,7 @@ jobs:
           } >> "$GITHUB_ENV"
 
       - name: Run AI Agent
-        uses: transferwise/claude-code-action@main
+        uses: transferwise/claude-code-action@fix_forked_prs_issue
         with:
           trigger_phrase: "/run-ci-ai-agents"
           use_commit_signing: "true"
