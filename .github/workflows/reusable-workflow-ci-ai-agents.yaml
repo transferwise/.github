@@ -55,7 +55,8 @@ jobs:
       inputs.event_name == 'issues' ||
       inputs.event_name == 'issue_comment' ||
       inputs.event_name == 'pull_request_review_comment' ||
-      inputs.event_name == 'pull_request_review'
+      inputs.event_name == 'pull_request_review' ||
+      inputs.event_name == 'push'
     runs-on: gha-production-medium
     container: ci-images-release.arti.tw.ee/actions_java_17_and_21
     permissions:
