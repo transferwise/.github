@@ -91,7 +91,7 @@ jobs:
           } >> "$GITHUB_ENV"
 
       - name: Run AI Agent
-        uses: transferwise/claude-code-action@fix_forked_prs_issue
+        uses: transferwise/claude-code-action@main
         with:
           trigger_phrase: "/run-ci-ai-agents"
           use_commit_signing: "true"
