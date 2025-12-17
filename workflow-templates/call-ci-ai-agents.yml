@@ -13,10 +13,10 @@ on:
 jobs:
   call-ci-ai-agents:
     if: |
-      (github.event_name == 'issue_comment' && contains(github.event.comment.body, '/run-ci-ai-agents')) ||
-      (github.event_name == 'pull_request_review_comment' && contains(github.event.comment.body, '/run-ci-ai-agents')) ||
-      (github.event_name == 'pull_request_review' && contains(github.event.review.body, '/run-ci-ai-agents')) ||
-      (github.event_name == 'issues' && (contains(github.event.issue.body, '/run-ci-ai-agents') || contains(github.event.issue.title, '/run-ci-ai-agents')))
+      (github.event_name == 'issue_comment' && (contains(github.event.comment.body, '/run-ci-ai-agents') || contains(github.event.comment.body, '/codex-'))) ||
+      (github.event_name == 'pull_request_review_comment' && (contains(github.event.comment.body, '/run-ci-ai-agents') || contains(github.event.comment.body, '/codex-'))) ||
+      (github.event_name == 'pull_request_review' && (contains(github.event.review.body, '/run-ci-ai-agents') || contains(github.event.review.body, '/codex-'))) ||
+      (github.event_name == 'issues' && (contains(github.event.issue.body, '/run-ci-ai-agents') || contains(github.event.issue.title, '/run-ci-ai-agents') || contains(github.event.issue.body, '/codex-') || contains(github.event.issue.title, '/codex-')))
     uses: transferwise/.github/.github/workflows/reusable-workflow-ci-ai-agents.yaml@master
     secrets: inherit
     with:
