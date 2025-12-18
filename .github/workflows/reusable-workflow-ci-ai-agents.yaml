@@ -180,7 +180,7 @@ jobs:
           } >> "$GITHUB_ENV"
 
       - name: Run Codex Agent
-        uses: transferwise/codex-action@main
+        uses: transferwise/codex-action@v1.4
         with:
           prompt: ${{ needs.detect-agent.outputs.codex_prompt }}
           openai-api-key: ${{ secrets.OPENAI_API_KEY }}
