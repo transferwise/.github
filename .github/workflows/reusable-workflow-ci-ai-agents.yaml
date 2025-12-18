@@ -187,3 +187,4 @@ jobs:
           model: ${{ inputs.codex_model }}
           sandbox: "workspace-write"
           allow-users: "*"
+          safety-strategy: "unsafe"
