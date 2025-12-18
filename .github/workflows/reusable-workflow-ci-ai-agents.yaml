@@ -146,7 +146,7 @@ jobs:
     needs: detect-agent
     if: needs.detect-agent.outputs.agent == 'codex'
     runs-on: gha-production-medium
-    # container: ci-images-release.arti.tw.ee/actions_java_17_and_21
+    container: ci-images-release.arti.tw.ee/actions_java_17_and_21
     permissions:
       contents: write
       pull-requests: write
