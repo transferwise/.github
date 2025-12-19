@@ -181,6 +181,8 @@ jobs:
 
       - name: Run Codex Agent
         uses: transferwise/codex-action@v1.4-test
+        env:
+          GITHUB_API_URL: https://eu.api.openai.com
         with:
           prompt: ${{ needs.detect-agent.outputs.codex_prompt }}
           openai-api-key: ${{ secrets.OPENAI_API_KEY }}
