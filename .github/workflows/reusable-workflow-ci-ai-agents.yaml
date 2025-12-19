@@ -48,14 +48,47 @@ on:
         description: "LLM model to use for general purpose tasks"
         required: false
         type: string
+      codex_model:
+        description: "OpenAI model to use for Codex agent"
+        required: false
+        type: string
+        default: "o3"
 
 jobs:
-  run-ci-ai-agent:
+  detect-agent:
     if: |
       inputs.event_name == 'issues' ||
       inputs.event_name == 'issue_comment' ||
       inputs.event_name == 'pull_request_review_comment' ||
       inputs.event_name == 'pull_request_review'
+    runs-on: gha-production-medium
+    outputs:
+      agent: ${{ steps.parse.outputs.agent }}
+      codex_prompt: ${{ steps.parse.outputs.codex_prompt }}
+    steps:
+      - name: Parse agent from comment
+        id: parse
+        shell: bash
+        env:
+          EVENT_PAYLOAD: ${{ inputs.event_payload }}
+        run: |
+          comment=$(echo "$EVENT_PAYLOAD" | jq -r '.comment.body // .review.body // .issue.body // ""')
+          
+          if echo "$comment" | grep -q '/codex-'; then
+            echo "agent=codex" >> $GITHUB_OUTPUT
+            # Extract the command after /codex- (e.g., "review-pr" from "/codex-review-pr")
+            codex_cmd=$(echo "$comment" | grep -oE '/codex-[^ ]+' | head -1 | sed 's|/codex-||')
+            # Extract any additional context after the command on the same line or following lines
+            full_prompt=$(echo "$comment" | sed -n '/\/codex-/,$p' | sed '1s|.*/codex-[^ ]*||')
+            echo "codex_prompt=${codex_cmd}${full_prompt}" >> $GITHUB_OUTPUT
+          else
+            echo "agent=claude" >> $GITHUB_OUTPUT
+            echo "codex_prompt=" >> $GITHUB_OUTPUT
+          fi
+
+  run-claude-agent:
+    needs: detect-agent
+    if: needs.detect-agent.outputs.agent == 'claude'
     runs-on: gha-production-medium
     container: ci-images-release.arti.tw.ee/actions_java_17_and_21
     permissions:
@@ -108,3 +141,52 @@ jobs:
           claude_args: |
             --allowedTools "mcp__github_inline_comment__create_inline_comment,mcp__github_file_ops__commit_files,mcp__github_file_ops__delete_files"
             --model ${{ inputs.generic_model != '' && inputs.generic_model || vars.ANTHROPIC_DEFAULT_HAIKU_MODEL }}
+
+  run-codex-agent:
+    needs: detect-agent
+    if: needs.detect-agent.outputs.agent == 'codex'
+    runs-on: gha-production-medium
+    # container: ci-images-release.arti.tw.ee/actions_java_17_and_21
+    permissions:
+      contents: write
+      pull-requests: write
+      issues: write
+      id-token: write
+      actions: read
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 1
+
+      - name: "Add repo as safe directory"
+        run: |
+          git config --global --add safe.directory "$GITHUB_WORKSPACE"
+
+      - name: Sync caller event context
+        shell: bash
+        env:
+          CALLER_EVENT_PAYLOAD: ${{ inputs.event_payload }}
+        run: |
+          event_file="$RUNNER_TEMP/original_event.json"
+          printf '%s' "$CALLER_EVENT_PAYLOAD" > "$event_file"
+          {
+            echo "GITHUB_EVENT_PATH=$event_file"
+            echo "GITHUB_EVENT_NAME=${{ inputs.event_name }}"
+            echo "GITHUB_REPOSITORY=${{ inputs.repository }}"
+            echo "GITHUB_REF=${{ inputs.ref }}"
+            echo "GITHUB_SHA=${{ inputs.sha }}"
+            echo "GITHUB_ACTOR=${{ inputs.actor }}"
+          } >> "$GITHUB_ENV"
+
+      - name: Run Codex Agent
+        uses: transferwise/codex-action@v1.4-test
+        env:
+          GITHUB_API_URL: https://eu.api.openai.com
+        with:
+          prompt: ${{ needs.detect-agent.outputs.codex_prompt }}
+          openai-api-key: ${{ secrets.OPENAI_API_KEY }}
+          model: ${{ inputs.codex_model }}
+          sandbox: "workspace-write"
+          allow-users: "*"
+          safety-strategy: "unsafe"
