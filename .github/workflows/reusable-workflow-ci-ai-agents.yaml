@@ -107,4 +107,4 @@ jobs:
             ${{ secrets.ANTHROPIC_BEDROCK_BASE_URL }}
           claude_args: |
             --allowedTools "mcp__github_inline_comment__create_inline_comment,mcp__github_file_ops__commit_files,mcp__github_file_ops__delete_files"
-            --model ${{ inputs.generic_model != '' && inputs.generic_model || vars.ANTHROPIC_DEFAULT_HAIKU_MODEL }}
+            --model ${{ inputs.generic_model != '' && inputs.generic_model || vars.ANTHROPIC_DEFAULT_OPUS_MODEL }}
