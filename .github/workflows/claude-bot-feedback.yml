@@ -1,0 +1,347 @@
+name: Claude Bot Feedback Summary
+
+on:
+  # schedule:
+  #   # Run every night at 1:00 AM UTC
+  #   - cron: '0 1 * * *'
+  # workflow_dispatch:
+  #   inputs:
+  #     hours_lookback:
+  #       description: 'Hours to look back for comments (default: 24)'
+  #       required: false
+  #       default: '24'
+  #       type: string
+  push:
+    branches:
+      - update_metrics_workflow
+
+env:
+  GITHUB_TOKEN: ${{ secrets.GH_ACCESS_TOKEN }}
+
+jobs:
+  gather-feedback:
+    runs-on: gha-production-medium
+    container: ci-images-release.arti.tw.ee/actions_base_24_04
+    steps:
+      - name: Gather Claude Bot Feedback
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GH_ACCESS_TOKEN }}
+          script: |
+            const org = 'transferwise';
+
+            async function fetchRepositoriesWithWorkflowFile() {
+              const query = `filename:call-ci-ai-agents.yml path:.github/workflows org:${org}`;
+              const repositories = new Set();
+              const perPage = 100;
+              const maxResults = 1000; // GitHub search API cap
+              let page = 1;
+              let fetched = 0;
+
+              while (fetched < maxResults) {
+                const { data } = await github.rest.search.code({
+                  q: query,
+                  per_page: perPage,
+                  page
+                });
+
+                for (const item of data.items) {
+                  if (item.repository?.full_name) {
+                    repositories.add(item.repository.full_name);
+                  }
+                }
+
+                fetched += data.items.length;
+                if (data.items.length < perPage) break;
+                page++;
+              }
+
+              return Array.from(repositories);
+            }
+
+            const repositories = await fetchRepositoriesWithWorkflowFile();
+
+            const hoursLookback = parseInt('${{ github.event.inputs.hours_lookback }}' || '24');
+            const cutoffTime = new Date(Date.now() - hoursLookback * 60 * 60 * 1000);
+            
+            console.log(`Looking for Claude bot feedback since: ${cutoffTime.toISOString()}`);
+            console.log(`Scanning ${repositories.length} repositories...`);
+
+            const results = {
+              totalClaudeComments: 0,
+              totalReactions: 0,
+              totalReplies: 0,
+              reactionBreakdown: {},
+              feedbackEntries: [],  // Single list for all feedback (reactions + replies)
+              claudeUsageEntries: []
+            };
+
+            const reactionEmojis = {
+              '+1': '👍',
+              '-1': '👎',
+              'laugh': '😄',
+              'hooray': '🎉',
+              'confused': '😕',
+              'heart': '❤️',
+              'rocket': '🚀',
+              'eyes': '👀'
+            };
+
+            for (const repo of repositories) {
+              const [owner, repoName] = repo.split('/');
+              console.log(`\nProcessing ${repo}...`);
+
+              try {
+                // Get PRs updated recently - use manual pagination with early exit
+                const recentPRs = [];
+                let page = 1;
+                let hasMore = true;
+                
+                while (hasMore) {
+                  const { data: prs } = await github.rest.pulls.list({
+                    owner,
+                    repo: repoName,
+                    state: 'all',
+                    sort: 'updated',
+                    direction: 'desc',
+                    per_page: 100,
+                    page
+                  });
+                  
+                  if (prs.length === 0) {
+                    hasMore = false;
+                    break;
+                  }
+                  
+                  for (const pr of prs) {
+                    if (new Date(pr.updated_at) >= cutoffTime) {
+                      recentPRs.push(pr);
+                    } else {
+                      // PRs are sorted by updated_at desc, so we can stop once we hit old PRs
+                      hasMore = false;
+                      break;
+                    }
+                  }
+                  
+                  // If we processed all PRs on this page and they're all recent, get next page
+                  if (hasMore && prs.length === 100) {
+                    page++;
+                  } else {
+                    hasMore = false;
+                  }
+                }
+                
+                console.log(`Found ${recentPRs.length} recently updated PRs in ${repo}`);
+
+                for (const pr of recentPRs) {
+                  console.log(`  Checking PR #${pr.number}...`);
+                  
+                  // Get issue comments with since filter to limit results
+                  const { data: issueComments } = await github.rest.issues.listComments({
+                    owner,
+                    repo: repoName,
+                    issue_number: pr.number,
+                    since: cutoffTime.toISOString(),
+                    per_page: 100
+                  });
+
+                  // Get review comments with since filter
+                  const { data: reviewComments } = await github.rest.pulls.listReviewComments({
+                    owner,
+                    repo: repoName,
+                    pull_number: pr.number,
+                    since: cutoffTime.toISOString(),
+                    per_page: 100
+                  });
+
+                  const allComments = [...issueComments, ...reviewComments];
+                  
+                  // Find Claude bot comments (checking for common bot usernames)
+                  const claudeComments = allComments.filter(comment => {
+                    const username = comment.user?.login?.toLowerCase() || '';
+                    return username.includes('claude') || 
+                           (username === 'github-actions[bot]' && comment.body?.includes('Claude')) ||
+                           username.includes('claude-bot') ||
+                           username.includes('claudebot');
+                  });
+
+                  for (const claudeComment of claudeComments) {
+                    results.totalClaudeComments++;
+
+                    // Capture usage details
+                    const lines = (claudeComment.body || '').split('\n');
+                    // Find first non-empty line
+                    const titleLine = lines.find(l => l.trim().length > 0) || 'No content';
+                    // Clean title: remove markdown headers, links, and URLs, then truncate
+                    let cleanTitle = titleLine.replace(/^#+\s*/, '');
+                    cleanTitle = cleanTitle.replace(/\[([^\]]+)\]\([^\)]+\)/g, '$1'); // Remove markdown links
+                    cleanTitle = cleanTitle.replace(/https?:\/\/\S+/g, ''); // Remove raw URLs
+                    cleanTitle = cleanTitle.replace(/\s+/g, ' '); // Normalize spaces
+                    const title = cleanTitle.trim().substring(0, 80);
+                    
+                    results.claudeUsageEntries.push({
+                      repo,
+                      prNumber: pr.number,
+                      prUrl: pr.html_url,
+                      commentTitle: title,
+                      commentUrl: claudeComment.html_url,
+                      dateTime: claudeComment.created_at
+                    });
+
+                    // Get reactions for this comment (no pagination needed, reactions are typically few)
+                    let reactions = [];
+                    try {
+                      if (claudeComment.pull_request_review_id) {
+                        // This is a review comment
+                        const { data } = await github.rest.reactions.listForPullRequestReviewComment({
+                          owner,
+                          repo: repoName,
+                          comment_id: claudeComment.id,
+                          per_page: 100
+                        });
+                        reactions = data;
+                      } else {
+                        // This is an issue comment
+                        const { data } = await github.rest.reactions.listForIssueComment({
+                          owner,
+                          repo: repoName,
+                          comment_id: claudeComment.id,
+                          per_page: 100
+                        });
+                        reactions = data;
+                      }
+                    } catch (e) {
+                      console.log(`Could not fetch reactions for comment ${claudeComment.id}: ${e.message}`);
+                    }
+
+                    // Filter reactions to only those in our time window
+                    const recentReactions = reactions.filter(r => new Date(r.created_at) >= cutoffTime);
+                    
+                    // Add each reaction as a feedback entry
+                    for (const reaction of recentReactions) {
+                      results.totalReactions++;
+                      results.reactionBreakdown[reaction.content] = (results.reactionBreakdown[reaction.content] || 0) + 1;
+                      
+                      results.feedbackEntries.push({
+                        dateTime: reaction.created_at,
+                        repo,
+                        prNumber: pr.number,
+                        prUrl: pr.html_url,
+                        comment: null,
+                        reaction: reactionEmojis[reaction.content] || reaction.content,
+                        user: reaction.user?.login,
+                        claudeCommentUrl: claudeComment.html_url
+                      });
+                    }
+
+                    // Find replies to Claude's comments (comments created after Claude's comment that might be replies)
+                    const potentialReplies = allComments.filter(comment => {
+                      if (comment.id === claudeComment.id) return false;
+                      const commentTime = new Date(comment.created_at);
+                      const claudeTime = new Date(claudeComment.created_at);
+                      // Check if comment is after Claude's and within our time window
+                      return commentTime > claudeTime && 
+                             commentTime >= cutoffTime &&
+                             comment.user?.login?.toLowerCase() !== 'claude' &&
+                             !comment.user?.login?.toLowerCase().includes('claude');
+                    });
+
+                    // For review comments, check if they're direct replies
+                    const directReplies = potentialReplies.filter(reply => {
+                      // Check if it's a direct reply (has in_reply_to_id matching Claude's comment)
+                      return reply.in_reply_to_id === claudeComment.id;
+                    });
+
+                    // Add each reply as a feedback entry
+                    for (const reply of directReplies) {
+                      results.totalReplies++;
+                      
+                      // Truncate comment to reasonable length for table display
+                      const truncatedComment = reply.body?.substring(0, 100).replace(/\n/g, ' ') || '';
+                      const commentDisplay = truncatedComment.length === 100 ? truncatedComment + '...' : truncatedComment;
+                      
+                      results.feedbackEntries.push({
+                        dateTime: reply.created_at,
+                        repo,
+                        prNumber: pr.number,
+                        prUrl: pr.html_url,
+                        comment: commentDisplay,
+                        reaction: null,
+                        user: reply.user?.login,
+                        claudeCommentUrl: claudeComment.html_url
+                      });
+                    }
+                  }
+                }
+              } catch (error) {
+                console.log(`Error processing ${repo}: ${error.message}`);
+              }
+            }
+
+            // Generate summary
+            let summary = `# 🤖 Claude Bot Feedback Summary\n\n`;
+            summary += `**Report Period:** Last ${hoursLookback} hours (since ${cutoffTime.toISOString()})\n\n`;
+            summary += `**Generated:** ${new Date().toISOString()}\n\n`;
+            summary += `---\n\n`;
+            summary += `## 📊 Overview\n\n`;
+            summary += `| Metric | Count |\n`;
+            summary += `|--------|-------|\n`;
+            summary += `| Claude Comments Found | ${results.totalClaudeComments} |\n`;
+            summary += `| Total Reactions | ${results.totalReactions} |\n`;
+            summary += `| Total Replies | ${results.totalReplies} |\n\n`;
+
+            if (results.claudeUsageEntries.length > 0) {
+              // Sort by date/time descending
+              results.claudeUsageEntries.sort((a, b) => new Date(b.dateTime) - new Date(a.dateTime));
+
+              summary += `## 🤖 Claude Bot Usage\n\n`;
+              summary += `| Date & Time | Repository | PR | Title of Claude bot's comment | Claude bot comment URL |\n`;
+              summary += `|-------------|------------|--------------|-------------------------------|--------------------------------|\n`;
+              
+              for (const entry of results.claudeUsageEntries) {
+                const dateStr = new Date(entry.dateTime).toISOString().replace('T', ' ').substring(0, 19);
+                const repoName = entry.repo.split('/')[1];
+                const prLink = `[#${entry.prNumber}](${entry.prUrl})`;
+                const title = entry.commentTitle.replace(/\|/g, '\\|') || '-';
+                const link = `[View Comment](${entry.commentUrl})`;
+                
+                summary += `| ${dateStr} | ${repoName} | ${prLink} | ${title} | ${link} |\n`;
+              }
+              summary += `\n`;
+            }
+
+            if (results.feedbackEntries.length > 0) {
+              // Sort by date/time descending
+              results.feedbackEntries.sort((a, b) => new Date(b.dateTime) - new Date(a.dateTime));
+              
+              summary += `## 📋 Feedback Details\n\n`;
+              summary += `| Date & Time | Repository | PR # | Comment | Reaction | User | Claude Comment URL |\n`;
+              summary += `|-------------|------------|------|---------|----------|------|--------------------|\n`;
+              
+              for (const entry of results.feedbackEntries) {
+                const dateStr = new Date(entry.dateTime).toISOString().replace('T', ' ').substring(0, 19);
+                const repoShort = entry.repo.split('/')[1];
+                const prLink = `[#${entry.prNumber}](${entry.prUrl})`;
+                const comment = entry.comment ? entry.comment.replace(/\|/g, '\\|') : '-';
+                const reaction = entry.reaction || '-';
+                const claudeUrl = `[View](${entry.claudeCommentUrl})`;
+                
+                summary += `| ${dateStr} | ${repoShort} | ${prLink} | ${comment} | ${reaction} | @${entry.user} | ${claudeUrl} |\n`;
+              }
+              summary += `\n`;
+            } else {
+              summary += `## ℹ️ No Feedback Found\n\n`;
+              summary += `No reactions or replies to Claude bot comments were found in the specified repositories within the last ${hoursLookback} hours.\n`;
+            }
+
+            // Write to step summary
+            await core.summary
+              .addRaw(summary)
+              .write();
+
+            console.log('\n' + '='.repeat(80));
+            console.log('Summary written to workflow step summary');
+            console.log('='.repeat(80));
+
+            // Also output the summary to console
+            console.log(summary);
