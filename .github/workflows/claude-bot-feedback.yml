@@ -1,19 +1,16 @@
 name: Claude Bot Feedback Summary
 
 on:
-  # schedule:
-  #   # Run every night at 1:00 AM UTC
-  #   - cron: '0 1 * * *'
-  # workflow_dispatch:
-  #   inputs:
-  #     hours_lookback:
-  #       description: 'Hours to look back for comments (default: 24)'
-  #       required: false
-  #       default: '24'
-  #       type: string
-  push:
-    branches:
-      - update_metrics_workflow
+  schedule:
+    # Run every night at 1:00 AM UTC
+    - cron: '0 1 * * *'
+  workflow_dispatch:
+    inputs:
+      hours_lookback:
+        description: 'Hours to look back for comments (default: 24)'
+        required: false
+        default: '24'
+        type: string
 
 env:
   GITHUB_TOKEN: ${{ secrets.GH_ACCESS_TOKEN }}
