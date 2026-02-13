@@ -149,5 +149,6 @@ jobs:
             --model ${{ inputs.generic_model != '' && inputs.generic_model || vars.ANTHROPIC_DEFAULT_OPUS_MODEL }}
 
       - name: Show Claude execution output
+        if: always()
         run: |
           cat /__w/_temp/claude-execution-output.json
