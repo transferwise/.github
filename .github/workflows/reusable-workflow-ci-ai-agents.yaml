@@ -54,6 +54,7 @@ jobs:
     if: |
       inputs.event_name == 'issues' ||
       inputs.event_name == 'issue_comment' ||
+      inputs.event_name == 'pull_request' ||
       inputs.event_name == 'pull_request_review_comment' ||
       inputs.event_name == 'pull_request_review'
     runs-on: gha-production-medium
