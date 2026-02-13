@@ -65,6 +65,43 @@ jobs:
       issues: write
       id-token: write
       actions: read
+    env:
+      PR_PROMPT: |
+        REPO: ${{ github.repository }}
+        PR NUMBER: ${{ github.event.pull_request.number }}
+
+        Perform a comprehensive code review with the following focus areas:
+
+        1. **Code Quality**
+          - Clean code principles and best practices
+          - Proper error handling and edge cases
+          - Code readability and maintainability
+
+        2. **Security**
+          - Check for potential security vulnerabilities
+          - Validate input sanitization
+          - Review authentication/authorization logic
+
+        3. **Performance**
+          - Identify potential performance bottlenecks
+          - Review database queries for efficiency
+          - Check for memory leaks or resource issues
+
+        4. **Testing**
+          - Verify adequate test coverage
+          - Review test quality and edge cases
+          - Check for missing test scenarios
+
+        5. **Documentation**
+          - Ensure code is properly documented
+          - Verify README updates for new features
+          - Check API documentation accuracy
+
+        Provide detailed feedback using inline comments for specific issues.
+        Use top-level comments for general observations or praise.
+        Update the PR description section in the PR body with a concise summary for the human
+        reviewer that surfaces security and correctness risks, highlights suspicious diffs, and
+        provides a brief change summary.
     steps:
       - name: Checkout repository
         uses: actions/checkout@v5
@@ -94,6 +131,7 @@ jobs:
       - name: Run AI Agent
         uses: transferwise/claude-code-action@main
         with:
+          prompt: ${{ inputs.event_name == 'pull_request' && env.PR_PROMPT || '' }}
           trigger_phrase: "/run-ci-ai-agents"
           use_commit_signing: "true"
           anthropic_bedrock_base_url: ${{ secrets.ANTHROPIC_BEDROCK_BASE_URL }}
