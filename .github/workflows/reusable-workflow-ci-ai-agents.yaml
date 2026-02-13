@@ -178,8 +178,13 @@ jobs:
             api.github.com
             ${{ secrets.ANTHROPIC_BEDROCK_BASE_URL }}
           claude_args: |
-            --allowedTools "mcp__github_inline_comment__create_inline_comment,mcp__github_file_ops__commit_files,mcp__github_file_ops__delete_file,mcp__github__update_pull_request"
+            --allowedTools "Bash(gh pr comment:*),Bash(gh pr diff:*),Bash(gh pr view:*),mcp__github_inline_comment__create_inline_comment,mcp__github_file_ops__commit_files,mcp__github_file_ops__delete_file,mcp__github__update_pull_request"
             --model ${{ inputs.generic_model != '' && inputs.generic_model || vars.ANTHROPIC_DEFAULT_OPUS_MODEL }}
+
+      - name: Show Claude execution output
+        if: always()
+        run: |
+          cat /__w/_temp/claude-execution-output.json
 
   run-codex-agent:
     needs: detect-agent
