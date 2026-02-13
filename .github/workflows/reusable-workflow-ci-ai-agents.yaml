@@ -66,7 +66,7 @@ jobs:
       id-token: write
       actions: read
     env:
-      PR_PROMT: |
+      PR_PROMPT: |
         REPO: ${{ github.repository }}
         PR NUMBER: ${{ github.event.pull_request.number }}
 
@@ -131,7 +131,7 @@ jobs:
       - name: Run AI Agent
         uses: transferwise/claude-code-action@main
         with:
-          prompt: ${{ inputs.event_name == 'pull_request' && env.PR_PROMT || '' }}
+          prompt: ${{ inputs.event_name == 'pull_request' && env.PR_PROMPT || '' }}
           trigger_phrase: "/run-ci-ai-agents"
           use_commit_signing: "true"
           anthropic_bedrock_base_url: ${{ secrets.ANTHROPIC_BEDROCK_BASE_URL }}
