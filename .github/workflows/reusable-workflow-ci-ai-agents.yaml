@@ -52,6 +52,7 @@ on:
 jobs:
   run-ci-ai-agent:
     if: |
+      inputs.event_name == 'push' ||
       inputs.event_name == 'issues' ||
       inputs.event_name == 'issue_comment' ||
       inputs.event_name == 'pull_request' ||
