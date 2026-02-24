@@ -130,7 +130,7 @@ jobs:
           } >> "$GITHUB_ENV"
 
       - name: Run AI Agent
-        uses: transferwise/claude-code-action@main
+        uses: transferwise/claude-code-action@update_prompt_inline_comment
         with:
           prompt: ${{ inputs.custom_prompt != '' && inputs.custom_prompt || (inputs.event_name == 'pull_request' && env.PR_PROMPT || '') }}
           trigger_phrase: "/run-ci-ai-agents"
