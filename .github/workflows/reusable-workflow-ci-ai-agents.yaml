@@ -68,6 +68,7 @@ jobs:
     env:
       PR_PROMPT: |
           - Review this pull request in three strict phases, in this exact order: (1) per-file review, (2) overall PR comment, (3) PR description update. Complete all phases.
+          - If repository documentation defines code review instructions (for example in CLAUDE.md, AGENTS.md, README.md, CONTRIBUTING.md, or docs), follow those instructions first.
 
           Phase 1 - Per-file review (required, first):
           - Review each changed file independently before writing any overall PR summary.
