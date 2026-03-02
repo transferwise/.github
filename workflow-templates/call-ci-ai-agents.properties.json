@@ -1,0 +1,5 @@
+{
+  "name": "Call AI Agents in CI",
+  "description": "Workflow to use AI agents in CI.",
+  "iconName": "ai-agent"
+}
